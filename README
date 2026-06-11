@@ -1,0 +1,78 @@
+# Credit Card Fraud Detection (Imbalanced Binary Classification)
+
+## Overview
+This project builds a **fraud detection model** to identify fraudulent credit card transactions in a highly imbalanced setting. The dataset contains **283,726 transactions** (after removing duplicates) and only **~0.17% fraud**, making accuracy a misleading metric. The project focuses on **precision/recall tradeoffs, PR-AUC, operational thresholding, and probability calibration**.
+
+## Business Context
+Fraud detection is a high-stakes problem:
+- **False negatives (missed fraud)** can cause direct financial loss and reputational harm.
+- **False positives (incorrect flags)** create customer friction and increase manual review workload.
+
+A practical solution must balance fraud capture with operational capacity.
+
+## Objective
+1. Build and evaluate models to predict `Class` (0 = legitimate, 1 = fraud).
+2. Use imbalanced-appropriate evaluation metrics (PR-AUC, precision/recall, F1).
+3. Select an **operational threshold** based on review capacity (alerts/day) rather than default 0.5.
+4. Calibrate probabilities so risk scores can be interpreted reliably.
+
+## Dataset
+Source: Hugging Face `David-Egea/Creditcard-fraud-detection`
+
+Columns:
+- `Time`, `Amount`
+- `V1` to `V28` (anonymized/PCA-like features)
+- Target: `Class`
+
+## Data Preparation
+- Verified **no missing values**.
+- Removed **exact duplicate rows** (1081 duplicates) to reduce redundancy.
+- Used **stratified train/test split** to preserve fraud rate in both sets.
+
+## Modeling Approach
+
+### Baseline: Logistic Regression (class_weight=balanced)
+- Good, interpretable baseline.
+- Strong ROC-AUC but threshold must be tuned due to imbalance.
+
+### Non-Linear Model: Random Forest
+- Better PR-AUC and better operational performance under the same alert budget.
+- Captures non-linear interactions in transaction patterns.
+
+## Thresholding Strategy (Operational Decision)
+Instead of using a default threshold (0.5), we choose a threshold based on business constraints.
+Example: **fixed review budget of ~102 alerts** on the test set.
+
+### Example Operating Point (Logistic Regression @ threshold=0.995)
+Confusion matrix: [[TN, FP], [FN, TP]] = [[56623, 28], [21, 74]]
+- Precision: 0.725
+- Recall: 0.779
+- Alerts per fraud caught: 1.38
+- False positives per fraud caught: 0.38
+
+### Random Forest @ matched 102 alerts (best operational tradeoff)
+Confusion matrix: [[56627, 24], [17, 78]]
+- Precision: 0.765
+- Recall: 0.821
+
+## Calibration
+We calibrated probabilities (Platt scaling / sigmoid) to improve probability interpretability.
+- Calibration generally does **not** change top-N alerting outcomes (ranking stays similar),
+  but it improves how scores behave as “risk probabilities,” which is useful for dashboards and policy thresholds.
+
+## Key Results (Summary)
+- Dataset is extremely imbalanced (~0.17% fraud).
+- Random Forest provided better PR-AUC and caught **more fraud with fewer false alarms** under the same alert budget.
+- Thresholding based on **review capacity** produced an operationally realistic solution.
+- Calibration improved probability interpretability.
+
+## How to Run
+1. Open the notebook: `fraud_detection.ipynb`
+2. Run cells top-to-bottom:
+   - load dataset from Hugging Face
+   - clean duplicates
+   - baseline model + threshold tuning
+   - Random Forest + matched-alert evaluation
+   - calibration curves and calibrated scoring
+
+## Suggested Repo Structure
